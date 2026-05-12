@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from "react";
 import VistaMozo from "../components/Mozo";
 import VistaCaja from "../components/Caja";
-import { Utensils, Monitor } from "lucide-react";
+import VistaAdmin from "../components/Admin"; // Importamos el Admin
+import { Utensils, Monitor, TrendingUp } from "lucide-react";
 
-// Antes de la demo, podés cambiar este nombre por el del bar/café
 const NOMBRE_CLIENTE = "Bienvenido"; 
 
 export type Pedido = {
@@ -17,33 +17,45 @@ export type Pedido = {
 };
 
 export default function Home() {
-  const [vista, setVista] = useState<"menu" | "mozo" | "caja">("menu");
+  // Sumamos "admin" a las opciones de vista
+  const [vista, setVista] = useState<"menu" | "mozo" | "caja" | "admin">("menu");
   const [pedidosGlobales, setPedidosGlobales] = useState<Pedido[]>([]);
+  // Agregamos una alcancía para la recaudación
+  const [ventasTotales, setVentasTotales] = useState(0);
   const [cargado, setCargado] = useState(false);
 
-  // Carga los pedidos al abrir la página (LocalStorage)
   useEffect(() => {
     const pedidosGuardados = localStorage.getItem("sistemaPedidos_Local");
-    if (pedidosGuardados) {
-      setPedidosGlobales(JSON.parse(pedidosGuardados));
-    }
+    const ventasGuardadas = localStorage.getItem("sistemaVentas_Local");
+    if (pedidosGuardados) setPedidosGlobales(JSON.parse(pedidosGuardados));
+    if (ventasGuardadas) setVentasTotales(Number(ventasGuardadas));
     setCargado(true);
   }, []);
 
-  // Guarda automáticamente cada vez que se suma o se borra un pedido
   useEffect(() => {
     if (cargado) {
       localStorage.setItem("sistemaPedidos_Local", JSON.stringify(pedidosGlobales));
+      localStorage.setItem("sistemaVentas_Local", ventasTotales.toString());
     }
-  }, [pedidosGlobales, cargado]);
+  }, [pedidosGlobales, ventasTotales, cargado]);
 
   const handleNuevoPedido = (nuevo: Pedido) => setPedidosGlobales([...pedidosGlobales, nuevo]);
-  const handleCompletarPedido = (id: number) => setPedidosGlobales(pedidosGlobales.filter((p) => p.id !== id));
+  
+  // Cuando la caja cobra el pedido, se suma a la recaudación del dueño
+  const handleCompletarPedido = (id: number) => {
+    const pedidoCobrado = pedidosGlobales.find(p => p.id === id);
+    if (pedidoCobrado) {
+      setVentasTotales(prev => prev + pedidoCobrado.total);
+    }
+    setPedidosGlobales(pedidosGlobales.filter((p) => p.id !== id));
+  };
 
   if (!cargado) return null; 
 
   if (vista === "mozo") return <VistaMozo onVolver={() => setVista("menu")} onEnviar={handleNuevoPedido} />;
   if (vista === "caja") return <VistaCaja onVolver={() => setVista("menu")} pedidos={pedidosGlobales} onCompletar={handleCompletarPedido} />;
+  // Vista del nuevo panel de Admin
+  if (vista === "admin") return <VistaAdmin onVolver={() => setVista("menu")} ventasTotales={ventasTotales} />;
 
   return (
     <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-6">
@@ -52,23 +64,36 @@ export default function Home() {
         <p className="text-neutral-400 text-xl font-medium tracking-wide">Sistema de Gestión</p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
-        <button onClick={() => setVista("mozo")} className="bg-neutral-900 border border-neutral-800 hover:border-emerald-500 hover:bg-neutral-800 p-10 rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all group shadow-xl">
-          <div className="bg-neutral-950 p-6 rounded-full group-hover:scale-110 transition-transform">
-            <Utensils className="w-12 h-12 text-emerald-400" />
+      {/* Cambiamos la grilla para que entren los 3 botones */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
+        <button onClick={() => setVista("mozo")} className="bg-neutral-900 border border-neutral-800 hover:border-emerald-500 hover:bg-neutral-800 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all group shadow-xl">
+          <div className="bg-neutral-950 p-5 rounded-full group-hover:scale-110 transition-transform">
+            <Utensils className="w-10 h-10 text-emerald-400" />
           </div>
           <h2 className="text-2xl font-black text-white mt-2">Punto Mozo</h2>
-          <p className="text-neutral-500 text-center font-medium">Tomar pedidos desde el salón</p>
+          <p className="text-neutral-500 text-center font-medium">Tomar pedidos</p>
         </button>
 
-        <button onClick={() => setVista("caja")} className="bg-neutral-900 border border-neutral-800 hover:border-emerald-500 hover:bg-neutral-800 p-10 rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all group shadow-xl">
-          <div className="bg-neutral-950 p-6 rounded-full group-hover:scale-110 transition-transform">
-            <Monitor className="w-12 h-12 text-emerald-400" />
+        <button onClick={() => setVista("caja")} className="bg-neutral-900 border border-neutral-800 hover:border-emerald-500 hover:bg-neutral-800 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all group shadow-xl">
+          <div className="bg-neutral-950 p-5 rounded-full group-hover:scale-110 transition-transform">
+            <Monitor className="w-10 h-10 text-emerald-400" />
           </div>
           <h2 className="text-2xl font-black text-white mt-2">Recepción / Caja</h2>
           <p className="text-neutral-500 text-center font-medium">
-            {pedidosGlobales.length === 0 ? "Todo al día" : `${pedidosGlobales.length} comandas activas`}
+            {pedidosGlobales.length === 0 ? "Todo al día" : `${pedidosGlobales.length} comandas`}
           </p>
+        </button>
+
+        {/* NUEVO BOTÓN DE ADMIN */}
+        <button onClick={() => setVista("admin")} className="bg-neutral-900 border border-neutral-800 hover:border-emerald-500 hover:bg-neutral-800 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all group shadow-xl relative overflow-hidden">
+          <div className="absolute top-4 right-4 bg-emerald-500/20 text-emerald-400 text-xs font-black px-3 py-1 rounded-full border border-emerald-500/30">
+            PROPIETARIO
+          </div>
+          <div className="bg-neutral-950 p-5 rounded-full group-hover:scale-110 transition-transform">
+            <TrendingUp className="w-10 h-10 text-emerald-400" />
+          </div>
+          <h2 className="text-2xl font-black text-white mt-2 text-center">Stock y Reportes</h2>
+          <p className="text-neutral-500 text-center font-medium">Ver recaudación en vivo</p>
         </button>
       </div>
     </div>
